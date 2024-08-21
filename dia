@@ -1,0 +1,104 @@
+import YanAPI
+import sys
+import os
+
+# Initialize API with the given IP
+YanAPI.yan_api_init("192.168.20.195")
+
+# Function to provide disease tips
+def provide_tips(disease):
+    tips = {
+        'headache': 'To avoid headaches, stay hydrated, maintain a regular sleep schedule, and reduce stress.',
+        'colic': 'To prevent colic, eat small meals, avoid gas-producing foods, and stay active.',
+        'flu': 'To prevent the flu, get vaccinated annually, wash your hands regularly, and avoid close contact with sick individuals.',
+        'cold': 'To prevent a cold, wash your hands often, avoid touching your face, and stay away from sick people.',
+        'sinusitis': 'To prevent sinusitis, avoid upper respiratory infections, manage allergies, and stay hydrated.'
+    }
+    return tips.get(disease, 'No tips available for this disease.')
+
+# Function to provide medication suggestions
+def provide_medication(disease):
+    medications = {
+        'headache': 'You can take Burfen600, Ketofan, or Panadol Extra.',
+        'colic': 'You can take Mylicon, Lactobacillus, or Bentyl.',
+        'flu': 'You can take Tamiflu, Xofluza, or Relenza.',
+        'cold': 'You can take antihistamines, decongestants, or cough suppressants.',
+        'sinusitis': 'You can take nasal corticosteroids, decongestants, or saline nasal sprays.'
+    }
+    return medications.get(disease, 'I couldn\'t catch any disease.')
+
+# Highlight block
+def __highlight_block(block_id=None):
+    if block_id:
+        sys.stdout.write("\r")
+        sys.stdout.write(block_id)
+        sys.stdout.flush()
+
+# Validation response
+def __validation_response(res=None):
+    if res:
+        if res['code'] == 7 or res['code'] == 20001:
+            sys.stdout.write("\r")
+            sys.stdout.write("message:CAMERA_BUSY")
+            sys.stdout.flush()
+            os._exit(0)
+
+# Motion functions
+def put_motions(name, direction="", speed="normal", repeat=1, block_id=None):
+    __highlight_block(block_id)
+    try:
+        YanAPI.sync_play_motion(name, direction, speed, repeat)
+    except:
+        print('bad program')
+
+def reset_robot():
+    global is_on_stop
+    is_on_stop = True
+    YanAPI.stop_voice_iat()
+    YanAPI.stop_voice_tts()
+    if is_need_reset_gait_control:
+        YanAPI.exit_motion_gait()
+    else:
+        YanAPI.start_play_motion(name="Reset", repeat=1)
+    YanAPI.set_robot_led("button", "white", "reset")
+
+# Main function to handle the interaction
+def main_interaction():
+    while True:
+        # Initial interaction
+        YanAPI.sync_do_tts('Choose your disease: headache, colic, flu, cold, or sinusitis', True)
+        put_motions("head", "right", "normal", 1, block_id="1723022480706")  # Head motion
+
+        # Get the user response
+        res = YanAPI.sync_do_voice_iat_value()
+        if not res:
+            YanAPI.sync_do_tts('I couldn\'t catch that. Please repeat.', True)
+            continue
+
+        # Provide medication and tips based on the response
+        medication = provide_medication(res)
+        tips = provide_tips(res)
+
+        YanAPI.sync_do_tts(medication, True)
+        put_motions("come on", "both", "normal", 1, block_id="1723022271374")  # Hand motion
+        YanAPI.sync_do_tts(tips, True)
+
+        # Follow-up options
+        YanAPI.sync_do_tts('Would you like to repeat the operation or shut down?', True)
+
+        # Get the user's follow-up response
+        follow_up = YanAPI.sync_do_voice_iat_value()
+        if not follow_up:
+            YanAPI.sync_do_tts('I couldn\'t catch that. Please repeat.', True)
+            continue
+
+        if follow_up.lower() == 'shutdown':
+            YanAPI.sync_do_tts('Shutting down. Goodbye!', True)
+            break  # Exit the loop and shut down
+        else:
+            YanAPI.sync_do_tts('Repeating the operation.', True)
+            continue  # Restart the loop for any response other than shutdown
+
+if __name__ == '__main__':
+    main_interaction()
+    reset_robot()
